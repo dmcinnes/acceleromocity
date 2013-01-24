@@ -36,6 +36,7 @@
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
 int counter;
+float currentAcc[3] = {0.0, 0.0, 0.0};
 
 void setup()
 {
@@ -56,6 +57,7 @@ void setup()
 void loop()
 {  
   int i, output;
+  float acc;
   int accelCount[3];  // Stores the 12-bit signed value
   readAccelData(accelCount);  // Read the x/y/z adc values
 
@@ -65,24 +67,32 @@ void loop()
     accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
   }
 
-  // Print out values
+  // blue/green/red
   for (i = 0 ; i < 3 ; i++) {
-    Serial.print(accelG[i], 4);  // Print g values
-    Serial.print("\t");  // tabs in between axes
-  }
-  Serial.println();
+    //if (abs(currentAcc[i] - accelG[i]) < 0.2) {
+      acc = 0.8 * accelG[i] + currentAcc[i] * 0.2;
 
-  counter++;
-  if (counter >= 10) {
-    for (i = 0 ; i < 3 ; i++) {
-      output = int(255 * accelG[i]);
-      if (output < 0) {
-        output = 0;
+      if (acc > 1.0) {
+        acc = 1.0;
       }
+      if (acc < -1.0) {
+        acc = -1.0;
+      }
+     
+      output = int(255 * ((acc + 1) / 2));
+
+      currentAcc[i] = acc;
 
       analogWrite(9 + i, output);
-    }
+    //}
+
+    Serial.print(currentAcc[i], 2);  // Print g values
+    Serial.print("/");
+    Serial.print(output, HEX);  // Print color values
+    Serial.print("\t");  // tabs in between axes
   }
+
+  Serial.println();
 
   delay(10);  // Delay here for visibility
 }
