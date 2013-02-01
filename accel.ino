@@ -36,6 +36,7 @@
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
 int counter;
+unsigned long lastOutput = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
 void setup()
@@ -59,6 +60,9 @@ void loop()
   int i, output;
   float acc;
   int accelCount[3];  // Stores the 12-bit signed value
+
+  unsigned long currentTime = millis();
+
   readAccelData(accelCount);  // Read the x/y/z adc values
 
   // Now we'll calculate the accleration value into actual g's
@@ -70,31 +74,36 @@ void loop()
   // blue/green/red
   for (i = 0 ; i < 3 ; i++) {
     //if (abs(currentAcc[i] - accelG[i]) < 0.2) {
-      acc = 0.8 * accelG[i] + currentAcc[i] * 0.2;
+      acc = 0.9 * accelG[i] + currentAcc[i] * 0.1;
 
       if (acc > 1.0) {
         acc = 1.0;
       }
-      if (acc < -1.0) {
-        acc = -1.0;
+      if (acc < -0.0) {
+        acc = 0.0;
       }
      
-      output = int(255 * ((acc + 1) / 2));
+      output = int(255 * acc);
 
       currentAcc[i] = acc;
 
       analogWrite(9 + i, output);
     //}
 
-    Serial.print(currentAcc[i], 2);  // Print g values
-    Serial.print("/");
-    Serial.print(output, HEX);  // Print color values
-    Serial.print("\t");  // tabs in between axes
+    if (currentTime > lastOutput + 20) {
+      Serial.print(currentAcc[i], 2);  // Print g values
+      Serial.print("/");
+      Serial.print(output, HEX);  // Print color values
+      Serial.print("\t");  // tabs in between axes
+    }
   }
 
-  Serial.println();
+  if (currentTime > lastOutput + 20) {
+    Serial.println();
+    lastOutput = currentTime;
+  }
 
-  delay(10);  // Delay here for visibility
+  //delay(10);  // Delay here for visibility
 }
 
 void readAccelData(int *destination)
