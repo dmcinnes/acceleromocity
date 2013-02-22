@@ -36,8 +36,12 @@
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
 int counter;
-unsigned long lastOutput = 0;
+unsigned long lastTime = millis();
+unsigned int lightTime = 0;
+unsigned int timeSinceLastOutput = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
+unsigned int light = 0;
+unsigned int pin = 0;
 
 void setup()
 {
@@ -62,6 +66,8 @@ void loop()
   int accelCount[3];  // Stores the 12-bit signed value
 
   unsigned long currentTime = millis();
+  unsigned long elapsedTime = currentTime - lastTime;
+  lastTime = currentTime;
 
   readAccelData(accelCount);  // Read the x/y/z adc values
 
@@ -79,18 +85,18 @@ void loop()
       if (acc > 1.0) {
         acc = 1.0;
       }
-      if (acc < -0.0) {
+      if (acc < 0.0) {
         acc = 0.0;
       }
      
-      output = int(255 * acc);
+      /*output = int(255 * acc);*/
 
       currentAcc[i] = acc;
 
-      analogWrite(9 + i, output);
+      /*analogWrite(9 + i, output);*/
     //}
 
-    if (currentTime > lastOutput + 20) {
+    if (timeSinceLastOutput > 20) {
       Serial.print(currentAcc[i], 2);  // Print g values
       Serial.print("/");
       Serial.print(output, HEX);  // Print color values
@@ -98,10 +104,21 @@ void loop()
     }
   }
 
-  if (currentTime > lastOutput + 20) {
+  if (timeSinceLastOutput > 20) {
     Serial.println();
-    lastOutput = currentTime;
+    timeSinceLastOutput = 0;
   }
+
+  lightTime += elapsedTime;
+  if (lightTime > 1800) {
+    lightTime = 0;
+  }
+
+  output = int((1 + cos(PI + (lightTime * 6 * PI / 1800))) * 255 / 2);
+
+  i = int(lightTime / 600);
+
+  analogWrite(9 + i, output);
 
   //delay(10);  // Delay here for visibility
 }
