@@ -22,8 +22,7 @@
  The MMA8452 has built in pull-up resistors for I2C so you do not need additional pull-ups.
  */
 
-#include <Wire.h> // Used for I2C
-#include <Math.h>
+#include <TinyWireM.h> // Used for I2C
 
 // The SparkFun breakout board defaults to 1, set to 0 if SA0 jumper on the bottom of the board is set
 #define MMA8452_ADDRESS 0x1D  // 0x1D if SA0 is high, 0x1C if low
@@ -47,16 +46,16 @@ static unsigned int ledCount = 3;
 
 void setup()
 {
-  Serial.begin(57600);
-  Serial.println("MMA8452 Basic Example");
+  /*Serial.begin(57600);*/
+  /*Serial.println("MMA8452 Basic Example");*/
 
-  Wire.begin(); //Join the bus as a master
+  TinyWireM.begin(); //Join the bus as a master
 
   initMMA8452(); //Test and intialize the MMA8452
 
-  pinMode(9,  OUTPUT);
-  pinMode(10, OUTPUT);
-  pinMode(11, OUTPUT);
+  pinMode(0,  OUTPUT);
+  pinMode(1, OUTPUT);
+  pinMode(2, OUTPUT);
 }
 
 void loop()
@@ -90,7 +89,7 @@ void loop()
       output = int(255 * constrain(-dot, 0, 1));
 
 
-      analogWrite(9 + i, output);
+      analogWrite(i, output);
 
       /*Serial.print(accelG[i], 2);  // Print g values*/
       /*Serial.print("/");*/
@@ -135,12 +134,12 @@ void initMMA8452()
   byte c = readRegister(WHO_AM_I);  // Read WHO_AM_I register
   if (c == 0x2A) // WHO_AM_I should always be 0x2A
   {
-    Serial.println("MMA8452Q is online...");
+    /*Serial.println("MMA8452Q is online...");*/
   }
   else
   {
-    Serial.print("Could not connect to MMA8452Q: 0x");
-    Serial.println(c, HEX);
+    /*Serial.print("Could not connect to MMA8452Q: 0x");*/
+    /*Serial.println(c, HEX);*/
     while(1) ; // Loop forever if communication doesn't happen
   }
 
@@ -174,36 +173,36 @@ void MMA8452Active()
 // Read bytesToRead sequentially, starting at addressToRead into the dest byte array
 void readRegisters(byte addressToRead, int bytesToRead, byte * dest)
 {
-  Wire.beginTransmission(MMA8452_ADDRESS);
-  Wire.write(addressToRead);
-  Wire.endTransmission(false); //endTransmission but keep the connection active
+  TinyWireM.beginTransmission(MMA8452_ADDRESS);
+  TinyWireM.send(addressToRead);
+  TinyWireM.endTransmission(); //endTransmission but keep the connection active
 
-  Wire.requestFrom(MMA8452_ADDRESS, bytesToRead); //Ask for bytes, once done, bus is released by default
+  TinyWireM.requestFrom(MMA8452_ADDRESS, bytesToRead); //Ask for bytes, once done, bus is released by default
 
-  while(Wire.available() < bytesToRead); //Hang out until we get the # of bytes we expect
+  while(TinyWireM.available() < bytesToRead); //Hang out until we get the # of bytes we expect
 
   for(int x = 0 ; x < bytesToRead ; x++)
-    dest[x] = Wire.read();
+    dest[x] = TinyWireM.receive();
 }
 
 // Read a single byte from addressToRead and return it as a byte
 byte readRegister(byte addressToRead)
 {
-  Wire.beginTransmission(MMA8452_ADDRESS);
-  Wire.write(addressToRead);
-  Wire.endTransmission(false); //endTransmission but keep the connection active
+  TinyWireM.beginTransmission(MMA8452_ADDRESS);
+  TinyWireM.send(addressToRead);
+  TinyWireM.endTransmission(); //endTransmission but keep the connection active
 
-  Wire.requestFrom(MMA8452_ADDRESS, 1); //Ask for 1 byte, once done, bus is released by default
+  TinyWireM.requestFrom(MMA8452_ADDRESS, 1); //Ask for 1 byte, once done, bus is released by default
 
-  while(!Wire.available()) ; //Wait for the data to come back
-  return Wire.read(); //Return this one byte
+  while(!TinyWireM.available()) ; //Wait for the data to come back
+  return TinyWireM.receive(); //Return this one byte
 }
 
 // Writes a single byte (dataToWrite) into addressToWrite
 void writeRegister(byte addressToWrite, byte dataToWrite)
 {
-  Wire.beginTransmission(MMA8452_ADDRESS);
-  Wire.write(addressToWrite);
-  Wire.write(dataToWrite);
-  Wire.endTransmission(); //Stop transmitting
+  TinyWireM.beginTransmission(MMA8452_ADDRESS);
+  TinyWireM.send(addressToWrite);
+  TinyWireM.send(dataToWrite);
+  TinyWireM.endTransmission(); //Stop transmitting
 }
