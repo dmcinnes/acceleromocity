@@ -1,24 +1,24 @@
-/* 
+/*
  MMA8452Q Basic Example Code
  Nathan Seidle
  SparkFun Electronics
  November 5, 2012
- 
+
  License: This code is public domain but you buy me a beer if you use this and we meet someday (Beerware license).
- 
+
  This example code shows how to read the X/Y/Z accelerations and basic functions of the MMA5842. It leaves out
- all the neat features this IC is capable of (tap, orientation, and inerrupts) and just displays X/Y/Z. See 
+ all the neat features this IC is capable of (tap, orientation, and inerrupts) and just displays X/Y/Z. See
  the advanced example code to see more features.
- 
+
  Hardware setup:
  MMA8452 Breakout ------------ Arduino
  3.3V --------------------- 3.3V
  SDA -------^^(330)^^------- A4
  SCL -------^^(330)^^------- A5
  GND ---------------------- GND
- 
+
  The MMA8452 is 3.3V so we recommend using 330 or 1k resistors between a 5V Arduino and the MMA8452 breakout.
- 
+
  The MMA8452 has built in pull-up resistors for I2C so you do not need additional pull-ups.
  */
 
@@ -60,7 +60,7 @@ void setup()
 }
 
 void loop()
-{  
+{
   int i, output;
   float acc;
   int accelCount[3];  // Stores the 12-bit signed value
@@ -88,7 +88,7 @@ void loop()
       if (acc < 0.0) {
         acc = 0.0;
       }
-     
+
       /*output = int(255 * acc);*/
 
       currentAcc[i] = acc;
@@ -137,7 +137,7 @@ void readAccelData(int *destination)
 
     // If the number is negative, we have to make it so manually (no 12-bit data type)
     if (rawData[i*2] > 0x7F)
-    {  
+    {
       gCount = ~gCount + 1;
       gCount *= -1;  // Transform into negative 2's complement #
     }
@@ -146,14 +146,14 @@ void readAccelData(int *destination)
   }
 }
 
-// Initialize the MMA8452 registers 
+// Initialize the MMA8452 registers
 // See the many application notes for more info on setting all of these registers:
 // http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=MMA8452Q
 void initMMA8452()
 {
   byte c = readRegister(WHO_AM_I);  // Read WHO_AM_I register
   if (c == 0x2A) // WHO_AM_I should always be 0x2A
-  {  
+  {
     Serial.println("MMA8452Q is online...");
   }
   else
@@ -202,7 +202,7 @@ void readRegisters(byte addressToRead, int bytesToRead, byte * dest)
   while(Wire.available() < bytesToRead); //Hang out until we get the # of bytes we expect
 
   for(int x = 0 ; x < bytesToRead ; x++)
-    dest[x] = Wire.read();    
+    dest[x] = Wire.read();
 }
 
 // Read a single byte from addressToRead and return it as a byte
