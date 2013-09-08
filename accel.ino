@@ -68,57 +68,54 @@ void loop()
   unsigned long currentTime = millis();
   unsigned long elapsedTime = currentTime - lastTime;
   lastTime = currentTime;
+  timeSinceLastOutput += elapsedTime;
 
-  readAccelData(accelCount);  // Read the x/y/z adc values
+  if (timeSinceLastOutput > 100) {
 
-  // Now we'll calculate the accleration value into actual g's
-  float accelG[3];  // Stores the real accel value in g's
-  for (i = 0 ; i < 3 ; i++) {
-    accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
-  }
+    readAccelData(accelCount);  // Read the x/y/z adc values
 
-  // blue/green/red
-  for (i = 0 ; i < 3 ; i++) {
-    //if (abs(currentAcc[i] - accelG[i]) < 0.2) {
-      acc = 0.9 * accelG[i] + currentAcc[i] * 0.1;
+    // Now we'll calculate the accleration value into actual g's
+    float accelG[3];  // Stores the real accel value in g's
+    for (i = 0 ; i < 3 ; i++) {
+      accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
+    }
 
-      if (acc > 1.0) {
-        acc = 1.0;
-      }
-      if (acc < 0.0) {
-        acc = 0.0;
-      }
+    // blue/green/red
+    for (i = 0 ; i < 3 ; i++) {
+      //if (abs(currentAcc[i] - accelG[i]) < 0.2) {
+        acc = 0.95 * accelG[i] + currentAcc[i] * 0.05;
 
-      /*output = int(255 * acc);*/
+        acc = constrain(acc, 0, 1);
+        /*acc = acc < 0.3 ? 0 : acc;*/
 
-      currentAcc[i] = acc;
+        output = int(255 * acc);
 
-      /*analogWrite(9 + i, output);*/
-    //}
+        currentAcc[i] = acc;
 
-    if (timeSinceLastOutput > 20) {
-      Serial.print(currentAcc[i], 2);  // Print g values
+        analogWrite(9 + i, output);
+      //}
+
+      Serial.print(accelG[i], 2);  // Print g values
       Serial.print("/");
-      Serial.print(output, HEX);  // Print color values
+      Serial.print(acc, 2);
+      /*Serial.print(output, HEX);  // Print color values*/
       Serial.print("\t");  // tabs in between axes
+
+      Serial.println();
+      timeSinceLastOutput = 0;
     }
   }
 
-  if (timeSinceLastOutput > 20) {
-    Serial.println();
-    timeSinceLastOutput = 0;
-  }
+  /*lightTime += elapsedTime;*/
+  /*if (lightTime > 1800) {*/
+  /*  lightTime = 0;*/
+  /*}*/
 
-  lightTime += elapsedTime;
-  if (lightTime > 1800) {
-    lightTime = 0;
-  }
+  /*output = int((1 + cos(PI + (lightTime * 6 * PI / 1800))) * 255 / 2);*/
 
-  output = int((1 + cos(PI + (lightTime * 6 * PI / 1800))) * 255 / 2);
+  /*i = int(lightTime / 600);*/
 
-  i = int(lightTime / 600);
-
-  analogWrite(9 + i, output);
+  /*analogWrite(9 + i, output);*/
 
   //delay(10);  // Delay here for visibility
 }
