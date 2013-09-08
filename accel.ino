@@ -23,6 +23,7 @@
  */
 
 #include <Wire.h> // Used for I2C
+#include <Math.h>
 
 // The SparkFun breakout board defaults to 1, set to 0 if SA0 jumper on the bottom of the board is set
 #define MMA8452_ADDRESS 0x1D  // 0x1D if SA0 is high, 0x1C if low
@@ -35,9 +36,14 @@
 
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
+
 unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
+
+static float ledsX[3] = { -0.5,  0.5, 0.0 };
+static float ledsY[3] = { -0.5, -0.5, 1.0 };
+static unsigned int ledCount = 3;
 
 void setup()
 {
@@ -56,7 +62,7 @@ void setup()
 void loop()
 {
   int i, output;
-  float acc;
+  float dot;
   int accelCount[3];  // Stores the 12-bit signed value
 
   unsigned long currentTime = millis();
@@ -70,26 +76,29 @@ void loop()
 
     // Now we'll calculate the accleration value into actual g's
     float accelG[3];  // Stores the real accel value in g's
-    for (i = 0 ; i < 3 ; i++) {
+    for (i = 0; i < 3; i++) {
       accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
 
       // use a rolling filter
-      acc = 0.95 * accelG[i] + currentAcc[i] * 0.05;
-      acc = constrain(acc, 0, 1);
-      currentAcc[i] = acc;
+      currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
+    }
 
-      output = int(255 * acc);
+    for (i = 0; i < ledCount; i++) {
+      dot = currentAcc[0] * ledsX[i] + currentAcc[1] * ledsY[i];
+
+      // invert dot so the up pointing led is lit
+      output = int(255 * constrain(-dot, 0, 1));
 
 
       analogWrite(9 + i, output);
 
-      Serial.print(accelG[i], 2);  // Print g values
-      Serial.print("/");
-      Serial.print(acc, 2);
+      /*Serial.print(accelG[i], 2);  // Print g values*/
+      /*Serial.print("/");*/
+      /*Serial.print(acc, 2);*/
       /*Serial.print(output, HEX);  // Print color values*/
-      Serial.print("\t");  // tabs in between axes
+      /*Serial.print("\t");  // tabs in between axes*/
 
-      Serial.println();
+      /*Serial.println();*/
       timeSinceLastCheck = 0;
     }
   }
