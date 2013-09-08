@@ -35,13 +35,9 @@
 
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
-int counter;
 unsigned long lastTime = millis();
-unsigned int lightTime = 0;
-unsigned int timeSinceLastOutput = 0;
+unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
-unsigned int light = 0;
-unsigned int pin = 0;
 
 void setup()
 {
@@ -55,8 +51,6 @@ void setup()
   pinMode(9,  OUTPUT);
   pinMode(10, OUTPUT);
   pinMode(11, OUTPUT);
-
-  counter = 0;
 }
 
 void loop()
@@ -68,9 +62,9 @@ void loop()
   unsigned long currentTime = millis();
   unsigned long elapsedTime = currentTime - lastTime;
   lastTime = currentTime;
-  timeSinceLastOutput += elapsedTime;
+  timeSinceLastCheck += elapsedTime;
 
-  if (timeSinceLastOutput > 100) {
+  if (timeSinceLastCheck > 100) {
 
     readAccelData(accelCount);  // Read the x/y/z adc values
 
@@ -78,22 +72,16 @@ void loop()
     float accelG[3];  // Stores the real accel value in g's
     for (i = 0 ; i < 3 ; i++) {
       accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
-    }
 
-    // blue/green/red
-    for (i = 0 ; i < 3 ; i++) {
-      //if (abs(currentAcc[i] - accelG[i]) < 0.2) {
-        acc = 0.95 * accelG[i] + currentAcc[i] * 0.05;
+      // use a rolling filter
+      acc = 0.95 * accelG[i] + currentAcc[i] * 0.05;
+      acc = constrain(acc, 0, 1);
+      currentAcc[i] = acc;
 
-        acc = constrain(acc, 0, 1);
-        /*acc = acc < 0.3 ? 0 : acc;*/
+      output = int(255 * acc);
 
-        output = int(255 * acc);
 
-        currentAcc[i] = acc;
-
-        analogWrite(9 + i, output);
-      //}
+      analogWrite(9 + i, output);
 
       Serial.print(accelG[i], 2);  // Print g values
       Serial.print("/");
@@ -102,22 +90,9 @@ void loop()
       Serial.print("\t");  // tabs in between axes
 
       Serial.println();
-      timeSinceLastOutput = 0;
+      timeSinceLastCheck = 0;
     }
   }
-
-  /*lightTime += elapsedTime;*/
-  /*if (lightTime > 1800) {*/
-  /*  lightTime = 0;*/
-  /*}*/
-
-  /*output = int((1 + cos(PI + (lightTime * 6 * PI / 1800))) * 255 / 2);*/
-
-  /*i = int(lightTime / 600);*/
-
-  /*analogWrite(9 + i, output);*/
-
-  //delay(10);  // Delay here for visibility
 }
 
 void readAccelData(int *destination)
