@@ -49,13 +49,13 @@ void setup()
   /*Serial.begin(57600);*/
   /*Serial.println("MMA8452 Basic Example");*/
 
+  pinMode(0, OUTPUT);
+  pinMode(1, OUTPUT);
+  pinMode(2, OUTPUT);
+
   TinyWireM.begin(); //Join the bus as a master
 
   initMMA8452(); //Test and intialize the MMA8452
-
-  pinMode(0,  OUTPUT);
-  pinMode(1, OUTPUT);
-  pinMode(2, OUTPUT);
 }
 
 void loop()
@@ -140,7 +140,10 @@ void initMMA8452()
   {
     /*Serial.print("Could not connect to MMA8452Q: 0x");*/
     /*Serial.println(c, HEX);*/
-    while(1) ; // Loop forever if communication doesn't happen
+    unsigned int i = 0;
+    while(1) {
+      analogWrite(0, (i++/5) % 255);
+    } // Loop forever if communication doesn't happen
   }
 
   MMA8452Standby();  // Must be in standby to change registers
