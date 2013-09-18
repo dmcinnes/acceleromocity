@@ -132,8 +132,9 @@ LDFLAGS += -lm
 AVRDUDE_PROGRAMMER = avrisp
 
 
-AVRDUDE_PORT = com1	   # programmer connected to serial device
+# AVRDUDE_PORT = com1	   # programmer connected to serial device
 #AVRDUDE_PORT = lpt1	# programmer connected to parallel port
+AVRDUDE_PORT = /dev/cu.usbserial-A60061L6
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
@@ -152,8 +153,9 @@ AVRDUDE_FLAGS = -p $(MCU) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER)
 # Increase verbosity level.  Please use this when submitting bug
 # reports about avrdude. See <http://savannah.nongnu.org/projects/avrdude>
 # to submit bug reports.
-#AVRDUDE_FLAGS += -v -v
+# AVRDUDE_FLAGS += -v -v
 
+AVRDUDE_FLAGS += -b 19200
 
 
 
