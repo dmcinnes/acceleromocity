@@ -50,8 +50,10 @@ void setup()
   /*Serial.println("MMA8452 Basic Example");*/
 
   pinMode(0, OUTPUT);
-  pinMode(1, OUTPUT);
-  pinMode(2, OUTPUT);
+  /* pinMode(1, OUTPUT); */
+  /* pinMode(2, OUTPUT); */
+
+  delay(500);
 
   TinyWireM.begin(); //Join the bus as a master
 
@@ -140,10 +142,28 @@ void initMMA8452()
   {
     /*Serial.print("Could not connect to MMA8452Q: 0x");*/
     /*Serial.println(c, HEX);*/
-    unsigned int i = 0;
-    while(1) {
-      analogWrite(0, (i++/5) % 255);
-    } // Loop forever if communication doesn't happen
+    digitalWrite(0, LOW);
+
+    if (c) {
+      // output the error by blinking
+      while(1) {
+        for (byte i = 0; i < c; i++) {
+          digitalWrite(0, HIGH);
+          delay(500);
+          digitalWrite(0, LOW);
+          delay(500);
+        }
+        delay(5000);
+      } // Loop forever if communication doesn't happen
+    } else {
+      // blink fast if we don't have an error
+      while(1) {
+        digitalWrite(0, HIGH);
+        delay(50);
+        digitalWrite(0, LOW);
+        delay(50);
+      }
+    }
   }
 
   MMA8452Standby();  // Must be in standby to change registers
@@ -191,11 +211,18 @@ void readRegisters(byte addressToRead, int bytesToRead, byte * dest)
 // Read a single byte from addressToRead and return it as a byte
 byte readRegister(byte addressToRead)
 {
+  byte error = 0x0;
   TinyWireM.beginTransmission(MMA8452_ADDRESS);
   TinyWireM.send(addressToRead);
-  TinyWireM.endTransmission(); //endTransmission but keep the connection active
+  error = TinyWireM.endTransmission();
+  if (error) {
+    return error;
+  }
 
-  TinyWireM.requestFrom(MMA8452_ADDRESS, 1); //Ask for 1 byte, once done, bus is released by default
+  error = TinyWireM.requestFrom(MMA8452_ADDRESS, 1); //Ask for 1 byte, once done, bus is released by default
+  if (error) {
+    return error;
+  }
 
   while(!TinyWireM.available()) ; //Wait for the data to come back
   return TinyWireM.receive(); //Return this one byte
