@@ -24,6 +24,7 @@
 
 #include <Wire.h> // Used for I2C
 #include <Math.h>
+#include <SoftPWM.h>
 
 // The SparkFun breakout board defaults to 1, set to 0 if SA0 jumper on the bottom of the board is set
 #define MMA8452_ADDRESS 0x1D  // 0x1D if SA0 is high, 0x1C if low
@@ -41,9 +42,10 @@ unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
-static float ledsX[3] = { -0.5,  0.5, 0.0 };
-static float ledsY[3] = { -0.5, -0.5, 1.0 };
-static unsigned int ledCount = 3;
+static unsigned int ledCount = 8;
+static unsigned int ledPins[8] = { 9, 2, 3, 4, 5, 6, 7, 8 };
+static float ledsX[8] = {  0.0, -0.5, -1.0, -0.5,  0.5,  1.0,  0.5,  0.0 };
+static float ledsY[8] = { -1.0, -0.5,  0.0,  0.5, -0.5,  0.0,  0.5,  1.0 };
 
 void setup()
 {
@@ -54,9 +56,7 @@ void setup()
 
   initMMA8452(); //Test and intialize the MMA8452
 
-  pinMode(9,  OUTPUT);
-  pinMode(10, OUTPUT);
-  pinMode(11, OUTPUT);
+  SoftPWMBegin();
 }
 
 void loop()
@@ -89,8 +89,7 @@ void loop()
       // invert dot so the up pointing led is lit
       output = int(255 * constrain(-dot, 0, 1));
 
-
-      analogWrite(9 + i, output);
+      SoftPWMSet(ledPins[i], output);
 
       /*Serial.print(accelG[i], 2);  // Print g values*/
       /*Serial.print("/");*/
