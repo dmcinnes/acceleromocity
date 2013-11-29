@@ -47,16 +47,27 @@ static unsigned int ledPins[8] = { 9, 2, 3, 4, 5, 6, 7, 8 };
 static float ledsX[8] = {  0.0, -0.5, -1.0, -0.5,  0.5,  1.0,  0.5,  0.0 };
 static float ledsY[8] = { -1.0, -0.5,  0.0,  0.5, -0.5,  0.0,  0.5,  1.0 };
 
+bool flag = false;
+
 void setup()
 {
   Serial.begin(57600);
   Serial.println("MMA8452 Basic Example");
+
+  // Enable interrupts on PCINT11 (pin 26) for tap interrupts
+  PCMSK1 = 1<<PCINT11;
+
+  // Enable interrupts PCINT14..8
+  PCICR  = 1<<PCIE1;
 
   Wire.begin(); //Join the bus as a master
 
   initMMA8452(); //Test and intialize the MMA8452
 
   SoftPWMBegin();
+
+  // Global interrupt enable
+  sei();
 }
 
 void loop()
@@ -81,6 +92,10 @@ void loop()
 
       // use a rolling filter
       currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
+    }
+
+    if (flag) {
+      return;
     }
 
     for (i = 0; i < ledCount; i++) {
@@ -153,6 +168,29 @@ void initMMA8452()
 
   //The default data rate is 800Hz and we don't modify it in this example code
 
+
+  /* Set up single and double tap - 5 steps:
+   1. Set up single and/or double tap detection on each axis individually.
+   2. Set the threshold - minimum required acceleration to cause a tap.
+   3. Set the time limit - the maximum time that a tap can be above the threshold
+   4. Set the pulse latency - the minimum required time between one pulse and the next
+   5. Set the second pulse window - maximum allowed time between end of latency and start of second pulse
+   for more info check out this app note: http://cache.freescale.com/files/sensors/doc/app_note/AN4072.pdf */
+  writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes
+  // writeRegister(0x21, 0x55);  // 1. single taps only on all axes
+  // writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
+  writeRegister(0x23, 0x20);  // 2. x thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x24, 0x20);  // 2. y thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x25, 0x08);  // 2. z thresh at .5g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x26, 0x30);  // 3. 30ms time limit at 800Hz odr, this is very dependent on data rate, see the app note
+  writeRegister(0x27, 0xA0);  // 4. 200ms (at 800Hz odr) between taps min, this also depends on the data rate
+  writeRegister(0x28, 0xFF);  // 5. 318ms (max value) between taps max
+
+  // Set up interrupt 1 and 2
+  writeRegister(0x2C, 0x02);  // Active high, push-pull interrupts
+  writeRegister(0x2D, 0x19);  // DRDY, P/L and tap ints enabled
+  writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2
+
   MMA8452Active();  // Set to active to start reading
 }
 
@@ -205,4 +243,22 @@ void writeRegister(byte addressToWrite, byte dataToWrite)
   Wire.write(addressToWrite);
   Wire.write(dataToWrite);
   Wire.endTransmission(); //Stop transmitting
+}
+
+// interrupts
+ISR(PCINT1_vect) {
+  int i;
+
+  /* byte source = readRegister(0x22);  // Reads the PULSE_SRC register */
+
+  flag = !flag;
+
+  /* if ((source & 0x08)==0x08)  // If DPE (double puls) bit is set */
+  /*   flag = true; */
+  /* else */
+  /*   flag = false; */
+
+  for (i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 255);
+  }
 }
