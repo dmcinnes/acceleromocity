@@ -187,8 +187,8 @@ void initMMA8452()
   writeRegister(0x28, 0xFF);  // 5. 318ms (max value) between taps max
 
   // Set up interrupt 1 and 2
-  writeRegister(0x2C, 0x02);  // Active high, push-pull interrupts
-  writeRegister(0x2D, 0x19);  // DRDY, P/L and tap ints enabled
+  writeRegister(0x2C, 0x00);  // Active low, push-pull interrupts
+  writeRegister(0x2D, 0x08);  // Tap ints enabled
   writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2
 
   MMA8452Active();  // Set to active to start reading
