@@ -97,7 +97,7 @@ void loop()
       dot = currentAcc[0] * ledsX[i] + currentAcc[1] * ledsY[i];
 
       // invert dot so the up pointing led is lit
-      output = int(255 * constrain(-dot, 0, 1));
+      output = char(255 * constrain(-dot, 0, 1));
 
       SoftPWMSet(ledPins[i], output);
 
