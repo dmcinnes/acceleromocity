@@ -42,23 +42,22 @@ unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
-static unsigned int ledCount = 8;
-static unsigned int ledPins[8] = { 9, 2, 3, 4, 5, 6, 7, 8 };
-static float ledsX[8] = {  0.0, -0.5, -1.0, -0.5,  0.5,  1.0,  0.5,  0.0 };
-static float ledsY[8] = { -1.0, -0.5,  0.0,  0.5, -0.5,  0.0,  0.5,  1.0 };
-
-bool flag = false;
+static unsigned int ledCount = 12;
+static unsigned int ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
+static float ledsX[12] = { -1.0, -0.7, -0.4,  0.0,  0.4,  0.7,  1.0,  0.7,  0.4,  0.0,  -0.4, -0.7 };
+static float ledsY[12] = {  0.0, -0.3, -0.6, -1.0, -0.6, -0.3,  0.0,  0.3,  0.6,  1.0,   0.6,  0.3 };
 
 void setup()
 {
-  Serial.begin(57600);
-  Serial.println("MMA8452 Basic Example");
-
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
-  PCMSK1 = 1<<PCINT11;
+  /* PCMSK1 = 1<<PCINT11; */
 
-  // Enable interrupts PCINT14..8
-  PCICR  = 1<<PCIE1;
+  /* // Enable interrupts PCINT14..8 */
+  /* PCICR  = 1<<PCIE1; */
+
+  for (int i = 0; i < ledCount; i++) {
+    pinMode(ledPins[i], OUTPUT);
+  }
 
   Wire.begin(); //Join the bus as a master
 
@@ -67,7 +66,7 @@ void setup()
   SoftPWMBegin();
 
   // Global interrupt enable
-  sei();
+  /* sei(); */
 }
 
 void loop()
@@ -94,10 +93,6 @@ void loop()
       currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
     }
 
-    if (flag) {
-      return;
-    }
-
     for (i = 0; i < ledCount; i++) {
       dot = currentAcc[0] * ledsX[i] + currentAcc[1] * ledsY[i];
 
@@ -106,13 +101,6 @@ void loop()
 
       SoftPWMSet(ledPins[i], output);
 
-      /*Serial.print(accelG[i], 2);  // Print g values*/
-      /*Serial.print("/");*/
-      /*Serial.print(acc, 2);*/
-      /*Serial.print(output, HEX);  // Print color values*/
-      /*Serial.print("\t");  // tabs in between axes*/
-
-      /*Serial.println();*/
       timeSinceLastCheck = 0;
     }
   }
@@ -149,12 +137,12 @@ void initMMA8452()
   byte c = readRegister(WHO_AM_I);  // Read WHO_AM_I register
   if (c == 0x2A) // WHO_AM_I should always be 0x2A
   {
-    Serial.println("MMA8452Q is online...");
+    /* Serial.println("MMA8452Q is online..."); */
   }
   else
   {
-    Serial.print("Could not connect to MMA8452Q: 0x");
-    Serial.println(c, HEX);
+    /* Serial.print("Could not connect to MMA8452Q: 0x"); */
+    /* Serial.println(c, HEX); */
     while(1) ; // Loop forever if communication doesn't happen
   }
 
@@ -246,19 +234,17 @@ void writeRegister(byte addressToWrite, byte dataToWrite)
 }
 
 // interrupts
-ISR(PCINT1_vect) {
-  int i;
-
-  /* byte source = readRegister(0x22);  // Reads the PULSE_SRC register */
-
-  flag = !flag;
-
-  /* if ((source & 0x08)==0x08)  // If DPE (double puls) bit is set */
-  /*   flag = true; */
-  /* else */
-  /*   flag = false; */
-
-  for (i = 0; i < ledCount; i++) {
-    SoftPWMSet(ledPins[i], 255);
-  }
-}
+/* ISR(PCINT1_vect) { */
+/*   int i; */
+/*  */
+/*   #<{(| byte source = readRegister(0x22);  // Reads the PULSE_SRC register |)}># */
+/*  */
+/*   #<{(| if ((source & 0x08)==0x08)  // If DPE (double puls) bit is set |)}># */
+/*   #<{(|   flag = true; |)}># */
+/*   #<{(| else |)}># */
+/*   #<{(|   flag = false; |)}># */
+/*  */
+/*   for (i = 0; i < ledCount; i++) { */
+/*     SoftPWMSet(ledPins[i], 255); */
+/*   } */
+/* } */
