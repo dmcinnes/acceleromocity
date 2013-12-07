@@ -47,13 +47,15 @@ static unsigned int ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.7, -0.4,  0.0,  0.4,  0.7,  1.0,  0.7,  0.4,  0.0,  -0.4, -0.7 };
 static float ledsY[12] = {  0.0, -0.3, -0.6, -1.0, -0.6, -0.3,  0.0,  0.3,  0.6,  1.0,   0.6,  0.3 };
 
-void setup()
-{
-  // Enable interrupts on PCINT11 (pin 26) for tap interrupts
-  /* PCMSK1 = 1<<PCINT11; */
+unsigned int led = 0;
+bool tap = false;
 
-  /* // Enable interrupts PCINT14..8 */
-  /* PCICR  = 1<<PCIE1; */
+void setup() {
+  // Enable interrupts on PCINT11 (pin 26) for tap interrupts
+  PCMSK1 = 1<<PCINT11;
+
+  // Enable interrupts PCINT14..8
+  PCICR  = 1<<PCIE1;
 
   for (int i = 0; i < ledCount; i++) {
     pinMode(ledPins[i], OUTPUT);
@@ -66,11 +68,10 @@ void setup()
   SoftPWMBegin();
 
   // Global interrupt enable
-  /* sei(); */
+  sei();
 }
 
-void loop()
-{
+void loop() {
   int i, output;
   float dot;
   int accelCount[3];  // Stores the 12-bit signed value
@@ -103,11 +104,14 @@ void loop()
 
       timeSinceLastCheck = 0;
     }
+
+    if (tap) {
+      tapHandler();
+    }
   }
 }
 
-void readAccelData(int *destination)
-{
+void readAccelData(int *destination) {
   byte rawData[6];  // x/y/z accel register data stored here
 
   readRegisters(OUT_X_MSB, 6, rawData);  // Read the six raw data registers into data array
@@ -132,8 +136,7 @@ void readAccelData(int *destination)
 // Initialize the MMA8452 registers
 // See the many application notes for more info on setting all of these registers:
 // http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=MMA8452Q
-void initMMA8452()
-{
+void initMMA8452() {
   byte c = readRegister(WHO_AM_I);  // Read WHO_AM_I register
   if (c == 0x2A) // WHO_AM_I should always be 0x2A
   {
@@ -156,6 +159,9 @@ void initMMA8452()
 
   //The default data rate is 800Hz and we don't modify it in this example code
 
+  writeRegister(0x13, 0x44);  // 2. 29deg z-lock (don't think this register is actually writable)
+  writeRegister(0x14, 0x84);  // 3. 45deg thresh, 14deg hyst (don't think this register is writable either)
+  writeRegister(0x12, 0x50);  // 4. debounce counter at 100ms (at 800 hz)
 
   /* Set up single and double tap - 5 steps:
    1. Set up single and/or double tap detection on each axis individually.
@@ -169,7 +175,7 @@ void initMMA8452()
   // writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
   writeRegister(0x23, 0x20);  // 2. x thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x24, 0x20);  // 2. y thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
-  writeRegister(0x25, 0x08);  // 2. z thresh at .5g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x25, 0x20);  // 2. z thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x26, 0x30);  // 3. 30ms time limit at 800Hz odr, this is very dependent on data rate, see the app note
   writeRegister(0x27, 0xA0);  // 4. 200ms (at 800Hz odr) between taps min, this also depends on the data rate
   writeRegister(0x28, 0xFF);  // 5. 318ms (max value) between taps max
@@ -183,22 +189,19 @@ void initMMA8452()
 }
 
 // Sets the MMA8452 to standby mode. It must be in standby to change most register settings
-void MMA8452Standby()
-{
+void MMA8452Standby() {
   byte c = readRegister(CTRL_REG1);
   writeRegister(CTRL_REG1, c & ~(0x01)); //Clear the active bit to go into standby
 }
 
 // Sets the MMA8452 to active mode. Needs to be in this mode to output data
-void MMA8452Active()
-{
+void MMA8452Active() {
   byte c = readRegister(CTRL_REG1);
   writeRegister(CTRL_REG1, c | 0x01); //Set the active bit to begin detection
 }
 
 // Read bytesToRead sequentially, starting at addressToRead into the dest byte array
-void readRegisters(byte addressToRead, int bytesToRead, byte * dest)
-{
+void readRegisters(byte addressToRead, int bytesToRead, byte * dest) {
   Wire.beginTransmission(MMA8452_ADDRESS);
   Wire.write(addressToRead);
   Wire.endTransmission(false); //endTransmission but keep the connection active
@@ -212,8 +215,7 @@ void readRegisters(byte addressToRead, int bytesToRead, byte * dest)
 }
 
 // Read a single byte from addressToRead and return it as a byte
-byte readRegister(byte addressToRead)
-{
+byte readRegister(byte addressToRead) {
   Wire.beginTransmission(MMA8452_ADDRESS);
   Wire.write(addressToRead);
   Wire.endTransmission(false); //endTransmission but keep the connection active
@@ -225,26 +227,29 @@ byte readRegister(byte addressToRead)
 }
 
 // Writes a single byte (dataToWrite) into addressToWrite
-void writeRegister(byte addressToWrite, byte dataToWrite)
-{
+void writeRegister(byte addressToWrite, byte dataToWrite) {
   Wire.beginTransmission(MMA8452_ADDRESS);
   Wire.write(addressToWrite);
   Wire.write(dataToWrite);
   Wire.endTransmission(); //Stop transmitting
 }
 
+void tapHandler() {
+  byte source = readRegister(0x22);  // Reads the PULSE_SRC register
+
+  SoftPWMSet(ledPins[led], 0);
+
+  led++;
+  if (led >= ledCount) {
+    led = 0;
+  }
+
+  SoftPWMSet(ledPins[led], 150);
+
+  tap = false;
+}
+
 // interrupts
-/* ISR(PCINT1_vect) { */
-/*   int i; */
-/*  */
-/*   #<{(| byte source = readRegister(0x22);  // Reads the PULSE_SRC register |)}># */
-/*  */
-/*   #<{(| if ((source & 0x08)==0x08)  // If DPE (double puls) bit is set |)}># */
-/*   #<{(|   flag = true; |)}># */
-/*   #<{(| else |)}># */
-/*   #<{(|   flag = false; |)}># */
-/*  */
-/*   for (i = 0; i < ledCount; i++) { */
-/*     SoftPWMSet(ledPins[i], 255); */
-/*   } */
-/* } */
+ISR(PCINT1_vect) {
+  tap = true;
+}
