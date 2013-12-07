@@ -25,6 +25,7 @@
 #include <Wire.h> // Used for I2C
 #include <Math.h>
 #include <SoftPWM.h>
+#include <avr/sleep.h>
 
 // The SparkFun breakout board defaults to 1, set to 0 if SA0 jumper on the bottom of the board is set
 #define MMA8452_ADDRESS 0x1D  // 0x1D if SA0 is high, 0x1C if low
@@ -234,6 +235,36 @@ void writeRegister(byte addressToWrite, byte dataToWrite) {
   Wire.endTransmission(); //Stop transmitting
 }
 
+void goToSleep(void) {
+  for (int i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 0);
+  }
+
+  ADCSRA &= ~_BV(ADEN); // disable ADC
+  ACSR   |= _BV(ACD);   // disable the analog comparator
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  sleep_enable();
+  // turn off the brown-out detector.
+  // must have an ATtiny45 or ATtiny85 rev C or later for software to be able to disable the BOD.
+  // current while sleeping will be <0.5uA if BOD is disabled, <25uA if not.
+  cli();
+  uint8_t mcucr1 = MCUCR | _BV(BODS) | _BV(BODSE);  // turn off the brown-out detector
+  uint8_t mcucr2 = mcucr1 & ~_BV(BODSE);
+  MCUCR = mcucr1;
+  MCUCR = mcucr2;
+  sei();                         // ensure interrupts enabled so we can wake up again
+  sleep_cpu();                   // go to sleep
+  cli();                         // wake up here, disable interrupts
+  sleep_disable();
+
+  sei();                         // enable interrupts again
+
+  ADCSRA |= _BV(ADEN);   // enable ADC
+  ACSR   &= ~_BV(ACD);   // enable the analog comparator
+}
+
+
 void tapHandler() {
   byte source = readRegister(0x22);  // Reads the PULSE_SRC register
 
@@ -247,6 +278,11 @@ void tapHandler() {
   SoftPWMSet(ledPins[led], 150);
 
   tap = false;
+
+  if (led == 3) {
+    goToSleep();
+  }
+
 }
 
 // interrupts
