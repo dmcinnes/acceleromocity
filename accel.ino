@@ -38,6 +38,7 @@
 
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
+#define MAX_LED_BRIGHTNESS 200
 
 unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
@@ -45,8 +46,9 @@ float currentAcc[3] = {0.0, 0.0, 0.0};
 
 static unsigned int ledCount = 12;
 static unsigned int ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
-static float ledsX[12] = { -1.0, -0.7, -0.4,  0.0,  0.4,  0.7,  1.0,  0.7,  0.4,  0.0,  -0.4, -0.7 };
-static float ledsY[12] = {  0.0, -0.3, -0.6, -1.0, -0.6, -0.3,  0.0,  0.3,  0.6,  1.0,   0.6,  0.3 };
+// normalized
+static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
+static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
 unsigned int led = 0;
 bool tap = false;
@@ -58,23 +60,23 @@ void setup() {
   // Enable interrupts PCINT14..8
   PCICR  = 1<<PCIE1;
 
-  for (int i = 0; i < ledCount; i++) {
-    pinMode(ledPins[i], OUTPUT);
-  }
-
   Wire.begin(); //Join the bus as a master
 
   initMMA8452(); //Test and intialize the MMA8452
 
   SoftPWMBegin();
 
+  for (int i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 0);
+  }
+
   // Global interrupt enable
   sei();
 }
 
 void loop() {
-  int i, output;
-  float dot;
+  unsigned int i;
+  int output;
   int accelCount[3];  // Stores the 12-bit signed value
 
   unsigned long currentTime = millis();
@@ -95,21 +97,48 @@ void loop() {
       currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
     }
 
-    for (i = 0; i < ledCount; i++) {
-      dot = currentAcc[0] * ledsX[i] + currentAcc[1] * ledsY[i];
+    /* glowSide(); */
+    glowSingle();
 
-      // invert dot so the up pointing led is lit
-      output = char(255 * constrain(-dot, 0, 1));
-
-      SoftPWMSet(ledPins[i], output);
-
-      timeSinceLastCheck = 0;
-    }
+    timeSinceLastCheck = 0;
 
     if (tap) {
       tapHandler();
     }
   }
+}
+
+void glowSide() {
+  unsigned char i;
+  float dot;
+
+  for (i = 0; i < ledCount; i++) {
+    dot = accelerationDotProduct(ledsX[i], ledsY[i]);
+
+    // invert dot so the up pointing led is lit
+    SoftPWMSet(ledPins[i], char(MAX_LED_BRIGHTNESS * constrain(-dot, 0.0, 1.0)));
+  }
+}
+
+void glowSingle() {
+  char i, lit;
+  float max, dot;
+
+  lit = 0;
+  max = 0.0;
+  for (i = 0; i < ledCount; i++) {
+    dot = constrain(-accelerationDotProduct(ledsX[i], ledsY[i]), 0.0, 1.0);
+    if (dot > max) {
+      max = dot;
+      lit = i;
+    }
+    SoftPWMSet(ledPins[i], 0);
+  }
+  SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS);
+}
+
+float accelerationDotProduct(float x, float y) {
+  return currentAcc[0] * x + currentAcc[1] * y;
 }
 
 void readAccelData(int *destination) {
@@ -270,14 +299,14 @@ void goToSleep(void) {
 void tapHandler() {
   byte source = readRegister(0x22);  // Reads the PULSE_SRC register
 
-  SoftPWMSet(ledPins[led], 0);
+  /* SoftPWMSet(ledPins[led], 0); */
 
-  led++;
-  if (led >= ledCount) {
-    led = 0;
-  }
+  /* led++; */
+  /* if (led >= ledCount) { */
+  /*   led = 0; */
+  /* } */
 
-  SoftPWMSet(ledPins[led], 150);
+  /* SoftPWMSet(ledPins[led], 150); */
 
   tap = false;
 
