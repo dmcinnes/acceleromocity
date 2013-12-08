@@ -50,7 +50,6 @@ static unsigned int ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-unsigned int led = 0;
 bool tap = false;
 
 void setup() {
@@ -68,6 +67,7 @@ void setup() {
 
   for (int i = 0; i < ledCount; i++) {
     SoftPWMSet(ledPins[i], 0);
+    /* SoftPWMSetFadeTime(ledPins[i], 50, 400); */
   }
 
   // Global interrupt enable
@@ -98,7 +98,9 @@ void loop() {
     }
 
     /* glowSide(); */
-    glowSingle();
+    /* glowSingle(); */
+    /* chase(); */
+    twinkle();
 
     timeSinceLastCheck = 0;
 
@@ -135,6 +137,30 @@ void glowSingle() {
     SoftPWMSet(ledPins[i], 0);
   }
   SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS);
+}
+
+char led = 0;
+void chase() {
+  for (char i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 0);
+  }
+  led++;
+  if (led >= ledCount) {
+    led = 0;
+  }
+  SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS);
+}
+
+void twinkle() {
+  char newLed;
+  for (char i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 0);
+  }
+  do {
+    newLed = random(ledCount);
+  } while (newLed == led);
+  led = newLed;
+  SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS);
 }
 
 float accelerationDotProduct(float x, float y) {
@@ -267,8 +293,8 @@ void writeRegister(byte addressToWrite, byte dataToWrite) {
 }
 
 void goToSleep(void) {
-  for (int i = 0; i < ledCount; i++) {
-    SoftPWMSet(ledPins[i], 0);
+  for (char i = 0; i < ledCount; i++) {
+    digitalWrite(ledPins[i], 0);
   }
 
   ADCSRA &= ~_BV(ADEN); // disable ADC
