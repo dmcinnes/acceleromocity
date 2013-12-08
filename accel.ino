@@ -164,6 +164,8 @@ void initMMA8452() {
   writeRegister(0x14, 0x84);  // 3. 45deg thresh, 14deg hyst (don't think this register is writable either)
   writeRegister(0x12, 0x50);  // 4. debounce counter at 100ms (at 800 hz)
 
+  /* writeRegister(0x29, 0x3F);  // sleep after 20 sec */
+
   /* Set up single and double tap - 5 steps:
    1. Set up single and/or double tap detection on each axis individually.
    2. Set the threshold - minimum required acceleration to cause a tap.
@@ -174,12 +176,12 @@ void initMMA8452() {
   writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes
   // writeRegister(0x21, 0x55);  // 1. single taps only on all axes
   // writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
-  writeRegister(0x23, 0x20);  // 2. x thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
-  writeRegister(0x24, 0x20);  // 2. y thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
-  writeRegister(0x25, 0x20);  // 2. z thresh at 2g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x23, 0x1C);  // 2. x thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x24, 0x1C);  // 2. y thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
+  writeRegister(0x25, 0x1C);  // 2. z thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x26, 0x30);  // 3. 30ms time limit at 800Hz odr, this is very dependent on data rate, see the app note
-  writeRegister(0x27, 0xA0);  // 4. 200ms (at 800Hz odr) between taps min, this also depends on the data rate
-  writeRegister(0x28, 0xFF);  // 5. 318ms (max value) between taps max
+  writeRegister(0x27, 0x50);  // 4. 120ms (at 800Hz odr) between taps min, this also depends on the data rate
+  writeRegister(0x28, 0xA0);  // 5. 200ms between double taps max
 
   // Set up interrupt 1 and 2
   writeRegister(0x2C, 0x00);  // Active low, push-pull interrupts
@@ -279,8 +281,9 @@ void tapHandler() {
 
   tap = false;
 
-  if (led == 3) {
+  if ((source & 0x08)==0x08) { // double tap
     goToSleep();
+  } else {
   }
 
 }
