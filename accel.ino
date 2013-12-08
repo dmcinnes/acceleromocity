@@ -44,11 +44,15 @@ unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
-static unsigned int ledCount = 12;
-static unsigned int ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
+static char ledCount = 12;
+static char ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 // normalized
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
+
+static char currentHandler = 0;
+static char handlerCount   = 4;
+static void (*handlers[4]) () = { glowSide, glowSingle, chase, twinkle };
 
 bool tap = false;
 
@@ -77,7 +81,6 @@ void setup() {
 void loop() {
   unsigned int i;
   int output;
-  int accelCount[3];  // Stores the 12-bit signed value
 
   unsigned long currentTime = millis();
   unsigned long elapsedTime = currentTime - lastTime;
@@ -85,28 +88,34 @@ void loop() {
   timeSinceLastCheck += elapsedTime;
 
   if (timeSinceLastCheck > 100) {
-
-    readAccelData(accelCount);  // Read the x/y/z adc values
-
-    // Now we'll calculate the accleration value into actual g's
-    float accelG[3];  // Stores the real accel value in g's
-    for (i = 0; i < 3; i++) {
-      accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
-
-      // use a rolling filter
-      currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
-    }
+    updateAccelData();
 
     /* glowSide(); */
     /* glowSingle(); */
     /* chase(); */
-    twinkle();
+    /* twinkle(); */
+    (*handlers[currentHandler])();
 
     timeSinceLastCheck = 0;
 
     if (tap) {
       tapHandler();
     }
+  }
+}
+
+void updateAccelData() {
+  int accelCount[3];  // Stores the 12-bit signed value
+
+  readAccelData(accelCount);  // Read the x/y/z adc values
+
+  // Now we'll calculate the accleration value into actual g's
+  float accelG[3];  // Stores the real accel value in g's
+  for (char i = 0; i < 3; i++) {
+    accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
+
+    // use a rolling filter
+    currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
   }
 }
 
@@ -339,6 +348,10 @@ void tapHandler() {
   if ((source & 0x08)==0x08) { // double tap
     goToSleep();
   } else {
+    currentHandler++;
+    if (currentHandler >= handlerCount) {
+      currentHandler = 0;
+    }
   }
 
 }
