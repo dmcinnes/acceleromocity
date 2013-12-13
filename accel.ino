@@ -44,15 +44,15 @@ unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
-static char ledCount = 12;
-static char ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
+static byte ledCount = 12;
+static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 // normalized
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static char currentHandler = 0;
-static char handlerCount   = 4;
-static void (*handlers[4]) () = { glowSide, glowSingle, chase, twinkle };
+static byte currentRoutine = 0;
+static byte routineCount   = 4;
+static void (*routines[4]) () = { glowSide, glowSingle, chase, twinkle };
 
 bool tap = false;
 
@@ -90,16 +90,14 @@ void loop() {
   if (timeSinceLastCheck > 100) {
     updateAccelData();
 
-    /* glowSide(); */
-    /* glowSingle(); */
-    /* chase(); */
-    /* twinkle(); */
-    (*handlers[currentHandler])();
+    (*routines[currentRoutine])();
 
     timeSinceLastCheck = 0;
 
     if (tap) {
-      tapHandler();
+      /* tapHandler(); */
+      shakeHandler();
+      tap = false;
     }
   }
 }
@@ -111,7 +109,7 @@ void updateAccelData() {
 
   // Now we'll calculate the accleration value into actual g's
   float accelG[3];  // Stores the real accel value in g's
-  for (char i = 0; i < 3; i++) {
+  for (byte i = 0; i < 3; i++) {
     accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
 
     // use a rolling filter
@@ -120,19 +118,19 @@ void updateAccelData() {
 }
 
 void glowSide() {
-  unsigned char i;
+  byte i;
   float dot;
 
   for (i = 0; i < ledCount; i++) {
     dot = accelerationDotProduct(ledsX[i], ledsY[i]);
 
     // invert dot so the up pointing led is lit
-    SoftPWMSet(ledPins[i], char(MAX_LED_BRIGHTNESS * constrain(-dot, 0.0, 1.0)));
+    SoftPWMSet(ledPins[i], byte(MAX_LED_BRIGHTNESS * constrain(-dot, 0.0, 1.0)));
   }
 }
 
 void glowSingle() {
-  char i, lit;
+  byte i, lit;
   float max, dot;
 
   lit = 0;
@@ -148,9 +146,9 @@ void glowSingle() {
   SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS);
 }
 
-char led = 0;
+byte led = 0;
 void chase() {
-  for (char i = 0; i < ledCount; i++) {
+  for (byte i = 0; i < ledCount; i++) {
     SoftPWMSet(ledPins[i], 0);
   }
   led++;
@@ -161,8 +159,8 @@ void chase() {
 }
 
 void twinkle() {
-  char newLed;
-  for (char i = 0; i < ledCount; i++) {
+  byte newLed;
+  for (byte i = 0; i < ledCount; i++) {
     SoftPWMSet(ledPins[i], 0);
   }
   do {
@@ -230,6 +228,10 @@ void initMMA8452() {
 
   /* writeRegister(0x29, 0x3F);  // sleep after 20 sec */
 
+  writeRegister(0x1D, 0x1E);  // Enable transient detection on all axes, and latched into the TRANSIENT_SRC reg
+  writeRegister(0x1F, 0x10);  // Transient register threshold at 1g for shakes
+  writeRegister(0x20, 0x0A);  // Debounce counter at 50ms (40 * 1.25)
+
   /* Set up single and double tap - 5 steps:
    1. Set up single and/or double tap detection on each axis individually.
    2. Set the threshold - minimum required acceleration to cause a tap.
@@ -237,7 +239,7 @@ void initMMA8452() {
    4. Set the pulse latency - the minimum required time between one pulse and the next
    5. Set the second pulse window - maximum allowed time between end of latency and start of second pulse
    for more info check out this app note: http://cache.freescale.com/files/sensors/doc/app_note/AN4072.pdf */
-  writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes
+  /* writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes */
   // writeRegister(0x21, 0x55);  // 1. single taps only on all axes
   // writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
   writeRegister(0x23, 0x1C);  // 2. x thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
@@ -249,8 +251,10 @@ void initMMA8452() {
 
   // Set up interrupt 1 and 2
   writeRegister(0x2C, 0x00);  // Active low, push-pull interrupts
-  writeRegister(0x2D, 0x08);  // Tap ints enabled
-  writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2
+  /* writeRegister(0x2D, 0x08);  // Tap ints enabled */
+  writeRegister(0x2D, 0x20);  // Transient (shake) interrupts enabled
+  /* writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2 */
+  writeRegister(0x2E, 0x00);  // Transient (shake) interrupts on INT2
 
   MMA8452Active();  // Set to active to start reading
 }
@@ -302,7 +306,7 @@ void writeRegister(byte addressToWrite, byte dataToWrite) {
 }
 
 void goToSleep(void) {
-  for (char i = 0; i < ledCount; i++) {
+  for (byte i = 0; i < ledCount; i++) {
     digitalWrite(ledPins[i], 0);
   }
 
@@ -330,6 +334,11 @@ void goToSleep(void) {
   ACSR   &= ~_BV(ACD);   // enable the analog comparator
 }
 
+void shakeHandler() {
+  byte source = readRegister(0x1E);  // Reads the TRANSIENT_SRC register (and clears it)
+
+  nextRoutine();
+}
 
 void tapHandler() {
   byte source = readRegister(0x22);  // Reads the PULSE_SRC register
@@ -343,20 +352,21 @@ void tapHandler() {
 
   /* SoftPWMSet(ledPins[led], 150); */
 
-  tap = false;
-
   if ((source & 0x08)==0x08) { // double tap
     goToSleep();
   } else {
-    currentHandler++;
-    if (currentHandler >= handlerCount) {
-      currentHandler = 0;
-    }
+    nextRoutine();
   }
+}
 
+void nextRoutine() {
+  currentRoutine++;
+  if (currentRoutine >= routineCount) {
+    currentRoutine = 0;
+  }
 }
 
 // interrupts
-ISR(PCINT1_vect) {
+ISR(PCINT1_vect) { // Accelerometer I2
   tap = true;
 }
