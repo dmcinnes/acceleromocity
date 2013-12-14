@@ -38,7 +38,7 @@
 
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
-#define MAX_LED_BRIGHTNESS 200
+#define MAX_LED_BRIGHTNESS 150
 
 unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
@@ -54,7 +54,7 @@ static byte currentRoutine = 0;
 static byte routineCount   = 4;
 static void (*routines[4]) () = { glowSide, glowSingle, chase, twinkle };
 
-bool tap = false;
+bool interrupt = false;
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
@@ -94,10 +94,9 @@ void loop() {
 
     timeSinceLastCheck = 0;
 
-    if (tap) {
-      /* tapHandler(); */
-      shakeHandler();
-      tap = false;
+    if (interrupt) {
+      interruptHandler();
+      interrupt = false;
     }
   }
 }
@@ -241,7 +240,7 @@ void initMMA8452() {
    for more info check out this app note: http://cache.freescale.com/files/sensors/doc/app_note/AN4072.pdf */
   /* writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes */
   // writeRegister(0x21, 0x55);  // 1. single taps only on all axes
-  // writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
+  writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
   writeRegister(0x23, 0x1C);  // 2. x thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x24, 0x1C);  // 2. y thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x25, 0x1C);  // 2. z thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
@@ -252,7 +251,7 @@ void initMMA8452() {
   // Set up interrupt 1 and 2
   writeRegister(0x2C, 0x00);  // Active low, push-pull interrupts
   /* writeRegister(0x2D, 0x08);  // Tap ints enabled */
-  writeRegister(0x2D, 0x20);  // Transient (shake) interrupts enabled
+  writeRegister(0x2D, 0x28);  // Transient (shake) and pluse (tap) interrupts enabled
   /* writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2 */
   writeRegister(0x2E, 0x00);  // Transient (shake) interrupts on INT2
 
@@ -334,28 +333,29 @@ void goToSleep(void) {
   ACSR   &= ~_BV(ACD);   // enable the analog comparator
 }
 
+void interruptHandler() {
+  byte source = readRegister(0x0C);  // Read INT_SRC to see what got triggered
+
+  if ((source & 0x20)==0x20) { // shake
+    shakeHandler();
+  }
+
+  if ((source & 0x08)==0x08) { // tap
+    tapHandler();
+  }
+}
+
 void shakeHandler() {
-  byte source = readRegister(0x1E);  // Reads the TRANSIENT_SRC register (and clears it)
+  byte transientReg = readRegister(0x1E);  // Reads the TRANSIENT_SRC register (and clears it)
 
   nextRoutine();
 }
 
 void tapHandler() {
-  byte source = readRegister(0x22);  // Reads the PULSE_SRC register
+  byte pulseReg = readRegister(0x22);  // Reads the PULSE_SRC register (and clears it)
 
-  /* SoftPWMSet(ledPins[led], 0); */
-
-  /* led++; */
-  /* if (led >= ledCount) { */
-  /*   led = 0; */
-  /* } */
-
-  /* SoftPWMSet(ledPins[led], 150); */
-
-  if ((source & 0x08)==0x08) { // double tap
+  if ((pulseReg & 0x08)==0x08) { // double tap
     goToSleep();
-  } else {
-    nextRoutine();
   }
 }
 
@@ -368,5 +368,5 @@ void nextRoutine() {
 
 // interrupts
 ISR(PCINT1_vect) { // Accelerometer I2
-  tap = true;
+  interrupt = true;
 }
