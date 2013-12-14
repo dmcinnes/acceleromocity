@@ -50,9 +50,9 @@ static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static byte currentRoutine = 0;
-static byte routineCount   = 4;
-static void (*routines[4]) () = { glowSide, glowSingle, chase, twinkle };
+static byte currentRoutine = 4;
+static byte routineCount   = 5;
+static void (*routines[5]) () = { glowSide, glowSingle, chase, twinkle, fade };
 
 bool tap = false;
 
@@ -168,6 +168,18 @@ void twinkle() {
   } while (newLed == led);
   led = newLed;
   SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS);
+}
+
+byte fadeValue = 32;
+void fade() {
+  byte value = MAX_LED_BRIGHTNESS * (cos(2 * PI * fadeValue/64)+1)/2;
+  for (byte i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], value);
+  }
+  fadeValue++;
+  if (fadeValue > 64) {
+    fadeValue = 0;
+  }
 }
 
 float accelerationDotProduct(float x, float y) {
