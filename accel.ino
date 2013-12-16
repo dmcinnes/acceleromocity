@@ -50,17 +50,15 @@ static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static byte currentRoutine = 5;
+static byte currentRoutine = 0;
 static byte routineCount   = 6;
 static void (*routines[6]) () = { glowSide, glowSingle, chase, twinkle, fade, fadeCycle };
-
-bool interrupt = false;
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
   PCMSK1 = 1<<PCINT11;
 
-  // Enable interrupts PCINT14..8
+  /* // Enable interrupts PCINT14..8 */
   PCICR  = 1<<PCIE1;
 
   Wire.begin(); //Join the bus as a master
@@ -94,9 +92,8 @@ void loop() {
 
     timeSinceLastCheck = 0;
 
-    if (interrupt) {
+    if (digitalRead(A3) == LOW) {
       interruptHandler();
-      interrupt = false;
     }
   }
 }
@@ -380,6 +377,8 @@ void tapHandler() {
 
   if ((pulseReg & 0x08)==0x08) { // double tap
     goToSleep();
+  } else {
+    nextRoutine();
   }
 }
 
@@ -391,6 +390,4 @@ void nextRoutine() {
 }
 
 // interrupts
-ISR(PCINT1_vect) { // Accelerometer I2
-  interrupt = true;
-}
+EMPTY_INTERRUPT(PCINT1_vect); // Accelerometer I2
