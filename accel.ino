@@ -50,9 +50,9 @@ static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static byte currentRoutine = 0;
-static byte routineCount   = 6;
-static void (*routines[6]) () = { glowSide, glowSingle, chase, twinkle, fade, fadeCycle };
+static byte currentRoutine = 6;
+static byte routineCount   = 7;
+static void (*routines[7]) () = { glowSide, glowSingle, chase, twinkle, fade, fadeCycle, doubleChase };
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
@@ -152,6 +152,18 @@ void chase() {
     led = 0;
   }
   SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS);
+}
+
+void doubleChase() {
+  for (byte i = 0; i < ledCount; i++) {
+    SoftPWMSet(ledPins[i], 0);
+  }
+  led++;
+  if (led >= ledCount) {
+    led = 0;
+  }
+  SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS);
+  SoftPWMSet(ledPins[(led + ledCount/2) % ledCount], MAX_LED_BRIGHTNESS);
 }
 
 void twinkle() {
