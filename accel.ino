@@ -55,8 +55,8 @@ static byte routineCount   = 6;
 static void (*routines[6]) () = { glowSide, glowSingle, chase, twinkle, fade, fadeCycle };
 
 void setup() {
-  // Enable interrupts on PCINT11 (pin 26) for tap interrupts
-  PCMSK1 = 1<<PCINT11;
+  // Enable interrupts on PCINT10 (pin 25) and PCINT11 (pin 26) for tap, shake and sleep interrupts
+  PCMSK1 = 1<<PCINT10 | 1<<PCINT11;
 
   /* // Enable interrupts PCINT14..8 */
   PCICR  = 1<<PCIE1;
@@ -246,7 +246,7 @@ void initMMA8452() {
   writeRegister(0x14, 0x84);  // 3. 45deg thresh, 14deg hyst (don't think this register is writable either)
   writeRegister(0x12, 0x50);  // 4. debounce counter at 100ms (at 800 hz)
 
-  /* writeRegister(0x29, 0x3F);  // sleep after 20 sec */
+  writeRegister(0x29, 0x3F);  // sleep after 20 sec
 
   writeRegister(0x1D, 0x1E);  // Enable transient detection on all axes, and latched into the TRANSIENT_SRC reg
   writeRegister(0x1F, 0x10);  // Transient register threshold at 1g for shakes
@@ -272,9 +272,11 @@ void initMMA8452() {
   // Set up interrupt 1 and 2
   writeRegister(0x2C, 0x00);  // Active low, push-pull interrupts
   /* writeRegister(0x2D, 0x08);  // Tap ints enabled */
-  writeRegister(0x2D, 0x28);  // Transient (shake) and pluse (tap) interrupts enabled
+  /* writeRegister(0x2D, 0x28);  // Transient (shake) and pluse (tap) interrupts enabled */
+  writeRegister(0x2D, 0xA8);  // Sleep, Transient (shake) and pluse (tap) interrupts enabled
   /* writeRegister(0x2E, 0x01);  // DRDY on INT1, P/L and taps on INT2 */
-  writeRegister(0x2E, 0x00);  // Transient (shake) interrupts on INT2
+  /* writeRegister(0x2E, 0x00);  // Transient (shake) interrupts on INT2 */
+  writeRegister(0x2E, 0x80);  // Sleep interrupts on INT1, everything else on INT2
 
   MMA8452Active();  // Set to active to start reading
 }
@@ -364,6 +366,10 @@ void interruptHandler() {
   if ((source & 0x08)==0x08) { // tap
     tapHandler();
   }
+
+  if ((source & 0x80)==0x80) { // sleep
+    accelSleepHandler();
+  }
 }
 
 void shakeHandler() {
@@ -379,6 +385,14 @@ void tapHandler() {
     goToSleep();
   } else {
     nextRoutine();
+  }
+}
+
+void accelSleepHandler() {
+  byte sysmod = readRegister(0x0B);  // Reads the SYS_MOD register (and clears INT_SRC)
+
+  if ((sysmod & 0x02)==0x02) { // sleep mode
+    goToSleep();
   }
 }
 
