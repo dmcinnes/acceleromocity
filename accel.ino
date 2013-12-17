@@ -42,6 +42,7 @@
 
 unsigned long lastTime = millis();
 unsigned int timeSinceLastCheck = 0;
+unsigned int timeSinceLastEvent = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
 static byte ledCount = 12;
@@ -50,7 +51,7 @@ static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static byte currentRoutine = 7;
+static byte currentRoutine = 0;
 static byte routineCount   = 8;
 static void (*routines[8]) () = { glowSide, glowSingle, chase, twinkle, fade, fadeCycle, doubleChase, twinkleFade };
 
@@ -74,6 +75,8 @@ void setup() {
 
   // Global interrupt enable
   sei();
+
+  currentRoutine = random(routineCount);
 }
 
 void loop() {
@@ -84,6 +87,7 @@ void loop() {
   unsigned long elapsedTime = currentTime - lastTime;
   lastTime = currentTime;
   timeSinceLastCheck += elapsedTime;
+  timeSinceLastEvent += elapsedTime;
 
   if (timeSinceLastCheck > 100) {
     updateAccelData();
@@ -94,7 +98,13 @@ void loop() {
 
     if (digitalRead(A3) == LOW) {
       interruptHandler();
+      timeSinceLastEvent = 0;
     }
+  }
+
+  if (timeSinceLastEvent > 180 * 1000) { // 3 minutes
+    goToSleep();
+    timeSinceLastEvent = 0;
   }
 }
 
