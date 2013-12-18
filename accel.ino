@@ -52,8 +52,8 @@ static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92, 
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
 static byte currentRoutine = 0;
-static byte routineCount   = 9;
-static void (*routines[9]) () = { followSide, fadeCycle, chase, twinkle, fade, followSingle, doubleChase, twinkleFade, followHorizon };
+static byte routineCount   = 10;
+static void (*routines[10]) () = { followSide, fadeCycle, chase, followMarquee, twinkle, fade, followSingle, doubleChase, twinkleFade, followHorizon };
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
@@ -169,6 +169,26 @@ void followHorizon() {
   SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS);
   lit = (lit + 6) % 12;
   SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS);
+}
+
+void followMarquee() {
+  byte i, lit;
+  float max, dot;
+
+  lit = 0;
+  max = 0.0;
+  for (i = 0; i < ledCount; i++) {
+    dot = constrain(-accelerationDotProduct(ledsX[i], ledsY[i]), 0.0, 1.0);
+    if (dot > max) {
+      max = dot;
+      lit = i;
+    }
+    SoftPWMSet(ledPins[i], 0);
+  }
+
+  for (i = lit % 3; i < ledCount; i += 3) {
+    SoftPWMSet(ledPins[i], MAX_LED_BRIGHTNESS);
+  }
 }
 
 byte led = 0;
