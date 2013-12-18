@@ -433,6 +433,11 @@ void goToSleep(void) {
 
   ADCSRA |= _BV(ADEN);   // enable ADC
   ACSR   &= ~_BV(ACD);   // enable the analog comparator
+
+  // read and clear the tap and shake registers so whatever woke us up
+  // doesn't put us back to sleep
+  readRegister(0x1E);
+  readRegister(0x22);
 }
 
 void interruptHandler() {
