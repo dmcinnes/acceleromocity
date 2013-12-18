@@ -45,15 +45,20 @@ unsigned int timeSinceLastCheck = 0;
 unsigned int timeSinceLastEvent = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
+int lastTapX = 0;
+int lastTapY = 0;
+unsigned long lastPulseTime = 0;
+
+
 static byte ledCount = 12;
 static byte ledPins[12] = { 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
 // normalized
 static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
 static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
 
-static byte currentRoutine = 0;
-static byte routineCount   = 10;
-static void (*routines[10]) () = { followSide, fadeCycle, chase, followMarquee, twinkle, fade, followSingle, doubleChase, twinkleFade, followHorizon };
+static byte currentRoutine = 10;
+static byte routineCount   = 11;
+static void (*routines[11]) () = { followSide, fadeCycle, chase, followMarquee, twinkle, fade, followSingle, doubleChase, twinkleFade, followHorizon, tapEcho };
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
@@ -76,7 +81,7 @@ void setup() {
   // Global interrupt enable
   sei();
 
-  currentRoutine = random(routineCount);
+  /* currentRoutine = random(routineCount); */
 }
 
 void loop() {
@@ -271,6 +276,24 @@ void twinkleFade() {
   }
 }
 
+void tapEcho() {
+  byte i;
+  unsigned int difference = millis() - lastPulseTime;
+
+  if (difference < 1000) {
+    for (i = 0; i < ledCount; i++) {
+      float dot = lastTapX * ledsX[i] + lastTapY * ledsY[i];
+      dot = constrain(dot, 0.0, 1.0);
+
+      SoftPWMSet(ledPins[i], byte(MAX_LED_BRIGHTNESS * dot));
+    }
+  } else {
+    for (i = 0; i < ledCount; i++) {
+      SoftPWMSet(ledPins[i], 1);
+    }
+  }
+}
+
 float accelerationDotProduct(float x, float y) {
   return currentAcc[0] * x + currentAcc[1] * y;
 }
@@ -340,9 +363,9 @@ void initMMA8452() {
    4. Set the pulse latency - the minimum required time between one pulse and the next
    5. Set the second pulse window - maximum allowed time between end of latency and start of second pulse
    for more info check out this app note: http://cache.freescale.com/files/sensors/doc/app_note/AN4072.pdf */
-  /* writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes */
+  writeRegister(0x21, 0x7F);  // 1. enable single/double taps on all axes
   // writeRegister(0x21, 0x55);  // 1. single taps only on all axes
-  writeRegister(0x21, 0x6A);  // 1. double taps only on all axes
+  /* writeRegister(0x21, 0x6A);  // 1. double taps only on all axes */
   writeRegister(0x23, 0x1C);  // 2. x thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x24, 0x1C);  // 2. y thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
   writeRegister(0x25, 0x1C);  // 2. z thresh at 1.76g, multiply the value by 0.0625g/LSB to get the threshold
@@ -464,12 +487,15 @@ void tapHandler() {
   if ((pulseReg & 0x08)==0x08) { // double tap
     goToSleep();
   } else {
-    nextRoutine();
+    // update the last pulse polarity
+    lastTapX = int((pulseReg & 0x00)) * 2 - 1;
+    lastTapY = int((pulseReg & 0x01)) * 2 - 1;
+    lastPulseTime = millis();
   }
 }
 
 void nextRoutine() {
-  currentRoutine++;
+  /* currentRoutine++; */
   if (currentRoutine >= routineCount) {
     currentRoutine = 0;
   }
