@@ -40,9 +40,11 @@
 
 #define MAX_LED_BRIGHTNESS 150
 
+#define SLEEP_THRESHOLD 3 * 60 * 1000L // 3 minutes
+
 unsigned long lastTime = millis();
-unsigned int timeSinceLastCheck = 0;
-unsigned int timeSinceLastEvent = 0;
+unsigned long timeSinceLastCheck = 0;
+unsigned long timeSinceLastEvent = 0;
 float currentAcc[3] = {0.0, 0.0, 0.0};
 
 static byte ledCount = 12;
@@ -102,7 +104,7 @@ void loop() {
     }
   }
 
-  if (timeSinceLastEvent > 180 * 1000) { // 3 minutes
+  if (timeSinceLastEvent > SLEEP_THRESHOLD) { // 3 minutes
     goToSleep();
     timeSinceLastEvent = 0;
   }
