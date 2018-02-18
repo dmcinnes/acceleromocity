@@ -3,26 +3,32 @@
 #include <FastLED.h>
 #include <avr/sleep.h>
 
-#define MAX_LED_BRIGHTNESS 64
+#define MAX_LED_BRIGHTNESS 32
 #define SLEEP_THRESHOLD 3 * 60 * 1000L // 3 minutes
 #define LED_PIN 3
 #define GSCALE 2 // Sets full-scale range to +/-2, 4, or 8g. Used to calc real g values.
 
+#define X_PIN 0
+#define Y_PIN 1
+#define Z_PIN 2
+#define ACC_MIN 285
+#define ACC_MAX 430
+
 unsigned long lastTime = millis();
 unsigned long timeSinceLastCheck = 0;
 unsigned long timeSinceLastEvent = 0;
-float currentAcc[3] = {0.0, 0.0, 0.0};
+double currentAcc[3] = {0.0, 0.0, 0.0};
 
 const byte ledCount = 16;
 CRGB leds[ledCount];
 
 // normalized
-static float ledsX[12] = { -1.0, -0.92, -0.55,  0.0,  0.55,  0.92,  1.0,  0.92,  0.55,  0.0,  -0.55, -0.92 };
-static float ledsY[12] = {  0.0, -0.39, -0.83, -1.0, -0.83, -0.39,  0.0,  0.39,  0.83,  1.0,   0.83,  0.39 };
+float ledsX[ledCount];
+float ledsY[ledCount];
 
-static byte currentRoutine = 0;
+static byte currentRoutine = 6;
 static byte routineCount   = 10;
-static void (*routines[10]) () = { followSide, fadeCycle, chase, followMarquee, twinkle, fade, followSingle, doubleChase, twinkleFade, followHorizon };
+static void (*routines[10]) () = { twinkle, followSide, fadeCycle, chase, followMarquee, fade, followSingle, doubleChase, twinkleFade, followHorizon };
 
 void setup() {
   // Enable interrupts on PCINT11 (pin 26) for tap interrupts
@@ -36,23 +42,19 @@ void setup() {
 
   /* currentRoutine = random(routineCount); */
 
+  float segment = (2 * PI) / ledCount;
+  for (byte i = 0; i < ledCount; i++) {
+    ledsX[i] = cos(i * segment);
+    ledsY[i] = sin(i * segment);
+  }
+
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, ledCount).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(MAX_LED_BRIGHTNESS);
+
+  Serial.begin(9600);
 }
 
 void loop() {
-  // Turn the first led red for 1 second
-  leds[0] = CRGB::Red; 
-  FastLED.show();
-  delay(1000);
-
-  // Set the first led back to black for 1 second
-  leds[0] = CRGB::Black;
-  FastLED.show();
-  delay(1000);
-}
-
-void xloop() {
   unsigned int i;
   int output;
 
@@ -69,43 +71,57 @@ void xloop() {
 
     timeSinceLastCheck = 0;
 
-    if (digitalRead(A3) == LOW) {
-      interruptHandler();
-      timeSinceLastEvent = 0;
-    }
+    /* if (digitalRead(A3) == LOW) { */
+    /*   interruptHandler(); */
+    /*   timeSinceLastEvent = 0; */
+    /* } */
   }
 
-  if (timeSinceLastEvent > SLEEP_THRESHOLD) { // 3 minutes
-    goToSleep();
-    timeSinceLastEvent = 0;
-  }
+  /* if (timeSinceLastEvent > SLEEP_THRESHOLD) { // 3 minutes */
+  /*   goToSleep(); */
+  /*   timeSinceLastEvent = 0; */
+  /* } */
 }
 
 void updateAccelData() {
-  int accelCount[3];  // Stores the 12-bit signed value
+  int xRead = analogRead(X_PIN);
+  int yRead = analogRead(Y_PIN);
+  int zRead = analogRead(Z_PIN);
 
-  readAccelData(accelCount);  // Read the x/y/z adc values
+  int xAng = map(xRead, ACC_MIN, ACC_MAX, -90, 90);
+  int yAng = map(yRead, ACC_MIN, ACC_MAX, -90, 90);
+  int zAng = map(zRead, ACC_MIN, ACC_MAX, -90, 90);
 
-  // Now we'll calculate the accleration value into actual g's
-  float accelG[3];  // Stores the real accel value in g's
-  for (byte i = 0; i < 3; i++) {
-    accelG[i] = (float) accelCount[i] / ((1<<12)/(2*GSCALE));  // get actual g value, this depends on scale being set
+  currentAcc[0] = xAng / 90.0;
+  currentAcc[1] = yAng / 90.0;
+  currentAcc[2] = zAng / 90.0;
 
-    // use a rolling filter
-    currentAcc[i] = 0.95 * accelG[i] + currentAcc[i] * 0.05;
-  }
+  Serial.print("RAW x: ");
+  Serial.print(xRead);
+  Serial.print(" | y: ");
+  Serial.print(yRead);
+  Serial.print(" | z: ");
+  Serial.print(zRead);
+  Serial.print(" CALC x: ");
+  Serial.print(currentAcc[0]);
+  Serial.print(" | y: ");
+  Serial.print(currentAcc[1]);
+  Serial.print(" | z: ");
+  Serial.println(currentAcc[2]);
 }
 
 void followSide() {
-  byte i;
+  byte i, value;
   float dot;
 
   for (i = 0; i < ledCount; i++) {
     dot = accelerationDotProduct(ledsX[i], ledsY[i]);
 
     // invert dot so the up pointing led is lit
-    /* SoftPWMSet(ledPins[i], byte(MAX_LED_BRIGHTNESS * constrain(-dot, 0.0, 1.0))); */
+    value = byte(255 * constrain(-dot, 0.0, 1.0));
+    leds[i] = CRGB(value, value, value);
   }
+  FastLED.show();
 }
 
 void followSingle() {
@@ -121,8 +137,10 @@ void followSingle() {
       lit = i;
     }
     /* SoftPWMSet(ledPins[i], 0); */
+    leds[i] = CRGB::Black;
   }
-  /* SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS); */
+  leds[lit] = CRGB::Blue;
+  FastLED.show();
 }
 
 void followHorizon() {
@@ -191,42 +209,45 @@ void doubleChase() {
 void twinkle() {
   byte newLed;
   for (byte i = 0; i < ledCount; i++) {
-    /* SoftPWMSet(ledPins[i], 0); */
+    leds[i] = CRGB::Black;
   }
   do {
     newLed = random(ledCount);
   } while (newLed == led);
   led = newLed;
-  /* SoftPWMSet(ledPins[led], MAX_LED_BRIGHTNESS); */
+  leds[led] = CRGB::White;
+  FastLED.show();
 }
 
 byte fadeValue = 32;
 void fade() {
   byte value = MAX_LED_BRIGHTNESS * (cos(2 * PI * fadeValue/64)+1)/2;
   for (byte i = 0; i < ledCount; i++) {
-    /* SoftPWMSet(ledPins[i], value); */
+    leds[i] = CRGB(value, value, value);
   }
   fadeValue++;
   if (fadeValue >= 64) {
     fadeValue = 0;
   }
+  FastLED.show();
 }
 
 void fadeCycle() {
   byte value;
   for (byte i = 0; i < ledCount; i++) {
-    value = MAX_LED_BRIGHTNESS * constrain((cos((2 * PI * (fadeValue + i*10))/60)+1)/2, 0.0, 1.0);
-    /* SoftPWMSet(ledPins[i], value); */
+    value = 255 * constrain((cos((2 * PI * (fadeValue + i*10))/60)+1)/2, 0.0, 1.0);
+    leds[i] = CRGB(value, value, value);
   }
   fadeValue++;
   if (fadeValue >= 60) {
     fadeValue = 0;
   }
+  FastLED.show();
 }
 
 void twinkleFade() {
   for (byte i = 0; i < ledCount; i++) {
-    /* SoftPWMSet(ledPins[i], 0); */
+    leds[i] = CRGB::Black;
   }
 
   byte value = MAX_LED_BRIGHTNESS * sin(PI * fadeValue/16);
@@ -246,28 +267,6 @@ void twinkleFade() {
 
 float accelerationDotProduct(float x, float y) {
   return currentAcc[0] * x + currentAcc[1] * y;
-}
-
-void readAccelData(int *destination) {
-  byte rawData[6];  // x/y/z accel register data stored here
-
-  /* readRegisters(OUT_X_MSB, 6, rawData);  // Read the six raw data registers into data array */
-
-  // Loop to calculate 12-bit ADC and g value for each axis
-  for(int i = 0; i < 3 ; i++)
-  {
-    int gCount = (rawData[i*2] << 8) | rawData[(i*2)+1];  //Combine the two 8 bit registers into one 12-bit number
-    gCount >>= 4; //The registers are left align, here we right align the 12-bit integer
-
-    // If the number is negative, we have to make it so manually (no 12-bit data type)
-    if (rawData[i*2] > 0x7F)
-    {
-      gCount = ~gCount + 1;
-      gCount *= -1;  // Transform into negative 2's complement #
-    }
-
-    destination[i] = gCount; //Record this gCount into the 3 int array
-  }
 }
 
 void goToSleep(void) {
