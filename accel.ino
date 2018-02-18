@@ -12,7 +12,7 @@
 #define Y_PIN 1
 #define Z_PIN 2
 #define ACC_MIN 285
-#define ACC_MAX 430
+#define ACC_MAX 425
 
 unsigned long lastTime = millis();
 unsigned long timeSinceLastCheck = 0;
@@ -26,7 +26,7 @@ CRGB leds[ledCount];
 float ledsX[ledCount];
 float ledsY[ledCount];
 
-static byte currentRoutine = 6;
+static byte currentRoutine = 1;
 static byte routineCount   = 10;
 static void (*routines[10]) () = { twinkle, followSide, fadeCycle, chase, followMarquee, fade, followSingle, doubleChase, twinkleFade, followHorizon };
 
@@ -42,6 +42,8 @@ void setup() {
 
   /* currentRoutine = random(routineCount); */
 
+  Serial.begin(9600);
+
   float segment = (2 * PI) / ledCount;
   for (byte i = 0; i < ledCount; i++) {
     ledsX[i] = cos(i * segment);
@@ -51,7 +53,8 @@ void setup() {
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, ledCount).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(MAX_LED_BRIGHTNESS);
 
-  Serial.begin(9600);
+  leds[0] = CRGB::Blue;
+  FastLED.show();
 }
 
 void loop() {
@@ -136,7 +139,6 @@ void followSingle() {
       max = dot;
       lit = i;
     }
-    /* SoftPWMSet(ledPins[i], 0); */
     leds[i] = CRGB::Black;
   }
   leds[lit] = CRGB::Blue;
@@ -155,10 +157,10 @@ void followHorizon() {
       min = dot;
       lit = i;
     }
-    /* SoftPWMSet(ledPins[i], 0); */
+    leds[i] = CRGB::Black;
   }
   /* SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS); */
-  lit = (lit + 6) % 12;
+  lit = (lit + 8) % 16;
   /* SoftPWMSet(ledPins[lit], MAX_LED_BRIGHTNESS); */
 }
 
